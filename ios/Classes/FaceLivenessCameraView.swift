@@ -15,9 +15,11 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
   private let previewView: CameraPreviewView
   private let captureSession = AVCaptureSession()
   private var movieOutput: AVCaptureMovieFileOutput?
+  private var photoOutput: AVCapturePhotoOutput?
   private var faceDetector: FaceDetector?
   private var isRecording = false
   private var videoFilePath: String?
+  private var imageFilePath: String?
   private var videoLayer: AVCaptureVideoPreviewLayer?
   private let messenger: FlutterBinaryMessenger
   private let channel: FlutterMethodChannel
@@ -48,10 +50,10 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
 
     // Parse parameters from Flutter
     let map = args as? [String: Any] ?? [:]
-    targetYawSpan = CGFloat(truncating: map["targetYawSpan"] as? NSNumber ?? 80)
-    minCompletionTimeMillis = Int64(truncating: map["minCompletionTimeMillis"] as? NSNumber ?? 3000)
-    minFaceSize = CGFloat(truncating: map["minFaceSize"] as? NSNumber ?? 0.15)
-    maxMissedFrames = Int(truncating: map["maxMissedFrames"] as? NSNumber ?? 10)
+    targetYawSpan = CGFloat(truncating: map["targetYawSpan"] as? NSNumber ?? 100)
+    minCompletionTimeMillis = Int64(truncating: map["minCompletionTimeMillis"] as? NSNumber ?? 4000)
+    minFaceSize = CGFloat(truncating: map["minFaceSize"] as? NSNumber ?? 0.20)
+    maxMissedFrames = Int(truncating: map["maxMissedFrames"] as? NSNumber ?? 5)
     requireBidirectionalMovement = map["requireBidirectionalMovement"] as? Bool ?? true
     timeoutMillis = Int64(truncating: map["timeoutMillis"] as? NSNumber ?? 15000)
     startTime = Int64(Date().timeIntervalSince1970 * 1000)
@@ -93,6 +95,13 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
       captureSession.addOutput(movie)
       self.movieOutput = movie
     }
+    
+    // Photo output for image capture
+    let photo = AVCapturePhotoOutput()
+    if captureSession.canAddOutput(photo) {
+      captureSession.addOutput(photo)
+      self.photoOutput = photo
+    }
 
     captureSession.commitConfiguration()
     captureSession.startRunning()
@@ -103,7 +112,7 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
 
   private func setupFaceDetector() {
     let options = FaceDetectorOptions()
-    options.performanceMode = .fast
+    options.performanceMode = .accurate
     options.landmarkMode = .none
     options.contourMode = .none
     options.classificationMode = .none
@@ -130,9 +139,9 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
     
     let yaw = face.headEulerAngleY
     
-    // Track bidirectional movement
-    if yaw < -5 { hasMovedLeft = true }
-    if yaw > 5 { hasMovedRight = true }
+    // Track bidirectional movement (stricter thresholds)
+    if yaw < -10 { hasMovedLeft = true }
+    if yaw > 10 { hasMovedRight = true }
     
     // Update extremes
     if yaw < minYaw { minYaw = yaw }
@@ -181,12 +190,15 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
   private func stopAndFinalize() {
     captureSession.stopRunning()
     
+    // Capture image first
+    captureImage()
+    
     // Stop recording if active
     if let movie = movieOutput, movie.isRecording {
       movie.stopRecording()
       // The delegate will fire and invoke success when done.
     } else {
-      channel.invokeMethod("onLivenessSuccess", arguments: videoFilePath ?? "")
+      sendSuccessResult()
     }
   }
   
@@ -200,6 +212,26 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
     videoFilePath = fileURL.path
     isRecording = true
     movie.startRecording(to: fileURL, recordingDelegate: self)
+  }
+  
+  private func captureImage() {
+    guard let photo = photoOutput else { return }
+    
+    let settings = AVCapturePhotoSettings()
+    settings.photoQualityPrioritization = .speed
+    
+    photo.capturePhoto(with: settings, delegate: self)
+  }
+  
+  private func sendSuccessResult() {
+    var result: [String: Any] = [:]
+    if let videoPath = videoFilePath {
+      result["videoPath"] = videoPath
+    }
+    if let imagePath = imageFilePath {
+      result["imagePath"] = imagePath
+    }
+    channel.invokeMethod("onLivenessSuccess", arguments: result)
   }
 }
 
@@ -234,9 +266,39 @@ extension FaceLivenessCameraView: AVCaptureFileOutputRecordingDelegate {
     
     if let error = error {
       print("Recording error: \(error)")
-      channel.invokeMethod("onLivenessSuccess", arguments: "")
+      videoFilePath = nil
     } else {
-      channel.invokeMethod("onLivenessSuccess", arguments: outputFileURL.path)
+      videoFilePath = outputFileURL.path
+    }
+    
+    sendSuccessResult()
+  }
+}
+
+extension FaceLivenessCameraView: AVCapturePhotoCaptureDelegate {
+  func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+    if let error = error {
+      print("Photo capture error: \(error)")
+      imageFilePath = nil
+      return
+    }
+    
+    guard let imageData = photo.fileDataRepresentation() else {
+      print("Failed to get image data")
+      imageFilePath = nil
+      return
+    }
+    
+    let tempDir = FileManager.default.temporaryDirectory
+    let fileName = "liveness_\(Date().timeIntervalSince1970).jpg"
+    let fileURL = tempDir.appendingPathComponent(fileName)
+    
+    do {
+      try imageData.write(to: fileURL)
+      imageFilePath = fileURL.path
+    } catch {
+      print("Failed to write image data: \(error)")
+      imageFilePath = nil
     }
   }
 }

@@ -21,8 +21,11 @@ class FaceLivenessView extends StatefulWidget {
   /// Callback invoked when liveness succeeds. Returns the recorded video file.
   final ValueChanged<File>? onCapture;
 
+  /// Callback invoked when liveness succeeds. Returns the captured image file.
+  final ValueChanged<File>? onImageCapture;
+
   /// Target yaw span in degrees that must be covered to reach 100% progress.
-  /// Default is 80° for stricter liveness detection.
+  /// Default is 100° for stricter liveness detection.
   final double targetYawSpan;
 
   /// Timeout in milliseconds before the liveness session fails.
@@ -48,11 +51,12 @@ class FaceLivenessView extends StatefulWidget {
     super.key,
     this.onProgress,
     this.onCapture,
-    this.targetYawSpan = 80.0, // Increased from 60° for stricter detection
-    this.timeoutMillis = 15000, // Increased from 10s to 15s
-    this.minCompletionTimeMillis = 3000, // Must take at least 3 seconds
-    this.minFaceSize = 0.15, // Face must cover 15% of frame area
-    this.maxMissedFrames = 10, // Allow max 10 consecutive missed frames
+    this.onImageCapture,
+    this.targetYawSpan = 100.0, // Increased to 100° for stricter detection
+    this.timeoutMillis = 15000, // 15 seconds timeout
+    this.minCompletionTimeMillis = 4000, // Must take at least 4 seconds
+    this.minFaceSize = 0.20, // Face must cover 20% of frame area (closer)
+    this.maxMissedFrames = 5, // Allow max 5 consecutive missed frames
     this.requireBidirectionalMovement =
         true, // Require both left & right movement
   });
@@ -91,8 +95,18 @@ class _FaceLivenessViewState extends State<FaceLivenessView> {
         widget.onProgress?.call(progress);
         break;
       case 'onLivenessSuccess':
-        final path = call.arguments as String;
-        widget.onCapture?.call(File(path));
+        final Map<String, dynamic> result = Map<String, dynamic>.from(
+          call.arguments,
+        );
+        final String? videoPath = result['videoPath'] as String?;
+        final String? imagePath = result['imagePath'] as String?;
+
+        if (videoPath != null && videoPath.isNotEmpty) {
+          widget.onCapture?.call(File(videoPath));
+        }
+        if (imagePath != null && imagePath.isNotEmpty) {
+          widget.onImageCapture?.call(File(imagePath));
+        }
         break;
       case 'onError':
         final String message = call.arguments as String? ?? 'Unknown error';

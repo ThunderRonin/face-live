@@ -35,7 +35,7 @@ class FaceLivenessAnalyzer(
 
     private val detector: FaceDetector by lazy {
         val options = FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
             .enableTracking()
             .build()
         FaceDetection.getClient(options)
@@ -105,9 +105,9 @@ class FaceLivenessAnalyzer(
 
         val yaw = face.headEulerAngleY
 
-        // Track bidirectional movement
-        if (yaw < -5f) hasMovedLeft = true
-        if (yaw > 5f) hasMovedRight = true
+        // Track bidirectional movement (stricter thresholds)
+        if (yaw < -10f) hasMovedLeft = true
+        if (yaw > 10f) hasMovedRight = true
 
         // Update extremes
         if (yaw < minYaw) minYaw = yaw
