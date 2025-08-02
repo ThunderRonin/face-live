@@ -1,6 +1,6 @@
 name: face_live
 description: "A Flutter plugin for real-time face liveness detection using native camera and ML Kit."
-version: 0.0.1
+version: 0.1.0
 homepage: https://github.com/example/face_live
 repository: https://github.com/example/face_live
 issue_tracker: https://github.com/example/face_live/issues
