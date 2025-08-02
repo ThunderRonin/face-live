@@ -50,28 +50,25 @@ jobs:
         run: dart pub get
 
       - name: Install example dependencies
-        run: |
-          cd example
-          flutter pub get
+        run: flutter pub get
+        working-directory: example
 
       - name: Verify example formatting
-        run: |
-          cd example
-          dart format --output=none --set-exit-if-changed .
+        run: dart format --output=none --set-exit-if-changed .
+        working-directory: example
 
       - name: Analyze example project
-        run: |
-          cd example
-          dart analyze --fatal-infos
+        run: dart analyze --fatal-infos
+        working-directory: example
 
       - name: Run example tests
         run: |
-          cd example
           if [ -d "test" ] && [ "$(find test -name '*.dart' | wc -l)" -gt 0 ]; then
             flutter test
           else
             echo "No tests found in example/test directory, skipping..."
           fi
+        working-directory: example
 
   android-test:
     runs-on: ubuntu-latest
@@ -92,9 +89,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run Android unit tests
-        run: |
-          cd android
-          ./gradlew test
+        run: ./gradlew test
+        working-directory: android
 
   android-build:
     runs-on: ubuntu-latest
@@ -111,14 +107,12 @@ jobs:
         run: dart pub get
 
       - name: Install example dependencies
-        run: |
-          cd example
-          flutter pub get
+        run: flutter pub get
+        working-directory: example
 
       - name: Build example (Android)
-        run: |
-          cd example
-          flutter build apk --debug
+        run: flutter build apk --debug
+        working-directory: example
 
   ios-build:
     runs-on: macos-latest
@@ -135,11 +129,9 @@ jobs:
         run: dart pub get
 
       - name: Install example dependencies
-        run: |
-          cd example
-          flutter pub get
+        run: flutter pub get
+        working-directory: example
 
       - name: Build iOS (example)
-        run: |
-          cd example
-          flutter build ios --debug --no-codesign
+        run: flutter build ios --debug --no-codesign
+        working-directory: example
