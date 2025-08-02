@@ -60,21 +60,29 @@ class FaceLivenessRing extends StatelessWidget {
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.face, size: 48, color: Colors.white.withOpacity(0.8)),
+              Icon(
+                progress >= 100 ? Icons.camera_alt : Icons.face,
+                size: 48,
+                color: progress >= 100
+                    ? Colors.green.withOpacity(0.9)
+                    : Colors.white.withOpacity(0.8),
+              ),
               const SizedBox(height: 8),
               Text(
-                '${progress.toInt()}%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
+                progress >= 100 ? 'SMILE!' : '${progress.toInt()}%',
+                style: TextStyle(
+                  color: progress >= 100 ? Colors.green : Colors.white,
+                  fontSize: progress >= 100 ? 20 : 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                progress >= 100 ? 'Complete!' : 'Move left & right',
+                progress >= 100 ? '📸 Get ready!' : 'Move all directions',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: progress >= 100
+                      ? Colors.green.withOpacity(0.8)
+                      : Colors.white.withOpacity(0.7),
                   fontSize: 14,
                 ),
               ),

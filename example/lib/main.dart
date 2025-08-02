@@ -116,6 +116,7 @@ class _MyAppState extends State<MyApp> {
                 64,
             child: FaceLivenessRing(
               progress: _progress,
+              progressColor: _progress >= 100 ? Colors.green : Colors.blue,
               size:
                   math.min(
                     MediaQuery.of(context).size.width,
@@ -134,20 +135,26 @@ class _MyAppState extends State<MyApp> {
           child: Column(
             children: [
               Text(
-                'Turn your head left AND right (100° total)',
+                _progress >= 100
+                    ? '🎉 Liveness Accepted! Now smile for the camera! 😊'
+                    : 'Move your head left, right, up & down (65° total)',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
+                  color: _progress >= 100 ? Colors.green : Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Face must be clearly visible • Takes 4+ seconds\nStay close to camera • Move head both directions',
+                _progress >= 100
+                    ? 'Hold still and give us your best smile!\nCapturing in a moment...'
+                    : 'Face must be clearly visible • Takes 4+ seconds\nStay close to camera • Move head in all directions\nHold still after reaching 100% for capture',
                 textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: _progress >= 100
+                      ? Colors.green.withOpacity(0.9)
+                      : Colors.white70,
+                ),
               ),
             ],
           ),
@@ -175,7 +182,7 @@ class _MyAppState extends State<MyApp> {
                 const SizedBox(width: 8),
                 Text(
                   _progress >= 100
-                      ? 'Liveness Complete!'
+                      ? 'Liveness Verified! 📸'
                       : 'Progress: ${_progress.toInt()}%',
                   style: const TextStyle(
                     color: Colors.white,
@@ -194,17 +201,23 @@ class _MyAppState extends State<MyApp> {
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.8),
+              color: _progress >= 100
+                  ? Colors.orange.withOpacity(0.9)
+                  : Colors.green.withOpacity(0.8),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.videocam, color: Colors.white, size: 16),
-                SizedBox(width: 4),
+                Icon(
+                  _progress >= 100 ? Icons.camera_alt : Icons.videocam,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
                 Text(
-                  'LIVE',
-                  style: TextStyle(
+                  _progress >= 100 ? 'CAPTURE' : 'LIVE',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -228,7 +241,7 @@ class _MyAppState extends State<MyApp> {
             const Icon(Icons.check_circle, size: 80, color: Colors.green),
             const SizedBox(height: 24),
             const Text(
-              'Liveness Check Complete!',
+              '🎉 Perfect! Great shot!',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 24,
@@ -237,7 +250,7 @@ class _MyAppState extends State<MyApp> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Video and image saved successfully',
+              'Liveness verified and photo captured successfully! 📸✨',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.8),
                 fontSize: 16,

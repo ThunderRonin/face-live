@@ -46,16 +46,20 @@ class FaceLivenessCameraView(
     private val minFaceSize: Float
     private val maxMissedFrames: Int
     private val requireBidirectionalMovement: Boolean
+    private val enablePitchDetection: Boolean
     private val timeoutMillis: Long
+    private val captureDelayMillis: Long
 
     init {
         // Extract parameters sent from Flutter
-        targetYawSpan = (creationParams?.get("targetYawSpan") as? Number)?.toFloat() ?: 100f
+        targetYawSpan = (creationParams?.get("targetYawSpan") as? Number)?.toFloat() ?: 65f
         minCompletionTimeMillis = (creationParams?.get("minCompletionTimeMillis") as? Number)?.toLong() ?: 4000L
         minFaceSize = (creationParams?.get("minFaceSize") as? Number)?.toFloat() ?: 0.20f
         maxMissedFrames = (creationParams?.get("maxMissedFrames") as? Number)?.toInt() ?: 5
         requireBidirectionalMovement = (creationParams?.get("requireBidirectionalMovement") as? Boolean) ?: true
+        enablePitchDetection = (creationParams?.get("enablePitchDetection") as? Boolean) ?: true
         timeoutMillis = (creationParams?.get("timeoutMillis") as? Number)?.toLong() ?: 15000L
+        captureDelayMillis = (creationParams?.get("captureDelayMillis") as? Number)?.toLong() ?: 1500L
 
         startCamera()
     }
@@ -83,6 +87,8 @@ class FaceLivenessCameraView(
                             minFaceSize = minFaceSize,
                             maxMissedFrames = maxMissedFrames,
                             requireBidirectionalMovement = requireBidirectionalMovement,
+                            enablePitchDetection = enablePitchDetection,
+                            captureDelayMillis = captureDelayMillis,
                             onCompleted = this::onLivenessComplete,
                             onProgress = { percent -> channel.invokeMethod("onProgress", percent) }
                         )

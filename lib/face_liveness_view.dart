@@ -25,7 +25,7 @@ class FaceLivenessView extends StatefulWidget {
   final ValueChanged<File>? onImageCapture;
 
   /// Target yaw span in degrees that must be covered to reach 100% progress.
-  /// Default is 100° for stricter liveness detection.
+  /// Default is 65° for easier liveness detection.
   final double targetYawSpan;
 
   /// Timeout in milliseconds before the liveness session fails.
@@ -47,18 +47,28 @@ class FaceLivenessView extends StatefulWidget {
   /// When true, user must move head both directions from center.
   final bool requireBidirectionalMovement;
 
+  /// Whether to enable pitch (up/down) movement detection alongside yaw.
+  /// When true, head movement up/down also contributes to liveness progress.
+  final bool enablePitchDetection;
+
+  /// Delay in milliseconds after reaching 100% before capturing.
+  /// Gives users time to position themselves optimally for the final shot.
+  final int captureDelayMillis;
+
   const FaceLivenessView({
     super.key,
     this.onProgress,
     this.onCapture,
     this.onImageCapture,
-    this.targetYawSpan = 100.0, // Increased to 100° for stricter detection
+    this.targetYawSpan = 65.0, // 65° for easier detection
     this.timeoutMillis = 15000, // 15 seconds timeout
     this.minCompletionTimeMillis = 4000, // Must take at least 4 seconds
     this.minFaceSize = 0.20, // Face must cover 20% of frame area (closer)
     this.maxMissedFrames = 5, // Allow max 5 consecutive missed frames
     this.requireBidirectionalMovement =
         true, // Require both left & right movement
+    this.enablePitchDetection = true, // Enable up/down movement detection
+    this.captureDelayMillis = 1500, // 1.5 second delay after completion
   });
 
   @override
@@ -133,6 +143,8 @@ class _FaceLivenessViewState extends State<FaceLivenessView> {
           'minFaceSize': widget.minFaceSize,
           'maxMissedFrames': widget.maxMissedFrames,
           'requireBidirectionalMovement': widget.requireBidirectionalMovement,
+          'enablePitchDetection': widget.enablePitchDetection,
+          'captureDelayMillis': widget.captureDelayMillis,
         },
         creationParamsCodec: const StandardMessageCodec(),
       );
@@ -146,6 +158,8 @@ class _FaceLivenessViewState extends State<FaceLivenessView> {
           'minFaceSize': widget.minFaceSize,
           'maxMissedFrames': widget.maxMissedFrames,
           'requireBidirectionalMovement': widget.requireBidirectionalMovement,
+          'enablePitchDetection': widget.enablePitchDetection,
+          'captureDelayMillis': widget.captureDelayMillis,
         },
         creationParamsCodec: const StandardMessageCodec(),
       );

@@ -12,6 +12,8 @@ import com.google.mlkit.vision.face.FaceDetectorOptions
 
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
+import android.os.Handler
+import android.os.Looper
 
 /**
  * Analyzer that processes camera frames with ML Kit Face Detection, tracks yaw
@@ -29,6 +31,8 @@ class FaceLivenessAnalyzer(
     private val minFaceSize: Float,
     private val maxMissedFrames: Int,
     private val requireBidirectionalMovement: Boolean,
+    private val enablePitchDetection: Boolean,
+    private val captureDelayMillis: Long,
     private val onCompleted: () -> Unit,
     private val onProgress: (Int) -> Unit,
 ) : ImageAnalysis.Analyzer {
@@ -43,14 +47,20 @@ class FaceLivenessAnalyzer(
 
     private var minYaw: Float = Float.MAX_VALUE
     private var maxYaw: Float = Float.MIN_VALUE
+    private var minPitch: Float = Float.MAX_VALUE
+    private var maxPitch: Float = Float.MIN_VALUE
     private var hasMovedLeft: Boolean = false
     private var hasMovedRight: Boolean = false
+    private var hasMovedUp: Boolean = false
+    private var hasMovedDown: Boolean = false
     private var consecutiveMissedFrames: Int = 0
     private var frameWidth: Int = 0
     private var frameHeight: Int = 0
     private val startTime: Long = System.currentTimeMillis()
 
     private val done = AtomicBoolean(false)
+    private val delayStarted = AtomicBoolean(false)
+    private val handler = Handler(Looper.getMainLooper())
 
     @SuppressLint("UnsafeOptInUsageError")
     override fun analyze(proxy: ImageProxy) {
@@ -104,24 +114,41 @@ class FaceLivenessAnalyzer(
         }
 
         val yaw = face.headEulerAngleY
+        val pitch = if (enablePitchDetection) face.headEulerAngleX else 0f
 
         // Track bidirectional movement (stricter thresholds)
         if (yaw < -10f) hasMovedLeft = true
         if (yaw > 10f) hasMovedRight = true
+        
+        if (enablePitchDetection) {
+            if (pitch < -10f) hasMovedUp = true
+            if (pitch > 10f) hasMovedDown = true
+        }
 
-        // Update extremes
+        // Update extremes for yaw
         if (yaw < minYaw) minYaw = yaw
         if (yaw > maxYaw) maxYaw = yaw
+        
+        // Update extremes for pitch if enabled
+        if (enablePitchDetection) {
+            if (pitch < minPitch) minPitch = pitch
+            if (pitch > maxPitch) maxPitch = pitch
+        }
 
-        val coveredSpan = abs(maxYaw - minYaw)
-        val progress = (coveredSpan / targetYawSpan).coerceAtMost(1f)
+        // Calculate combined progress
+        val yawSpan = abs(maxYaw - minYaw)
+        val pitchSpan = if (enablePitchDetection) abs(maxPitch - minPitch) else 0f
+        
+        // Combine yaw and pitch spans, allowing either to contribute to total
+        val totalMovement = yawSpan + pitchSpan
+        val progress = (totalMovement / targetYawSpan).coerceAtMost(1f)
 
         val percent = (progress * 100).toInt()
         onProgress(percent)
 
         // Check completion conditions
         if (canComplete(progress)) {
-            onCompleted()
+            startCaptureDelay()
         }
     }
 
@@ -144,7 +171,18 @@ class FaceLivenessAnalyzer(
             return false
         }
         
-        return done.compareAndSet(false, true)
+        // Only allow starting the delay once
+        return delayStarted.compareAndSet(false, true)
+    }
+    
+    private fun startCaptureDelay() {
+        // Stop processing frames during the delay
+        done.set(true)
+        
+        // Schedule the capture after the delay
+        handler.postDelayed({
+            onCompleted()
+        }, captureDelayMillis)
     }
 
     private fun checkForFailure() {

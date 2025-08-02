@@ -25,20 +25,27 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
   private let channel: FlutterMethodChannel
   private var minYaw: CGFloat = .greatestFiniteMagnitude
   private var maxYaw: CGFloat = -.greatestFiniteMagnitude
+  private var minPitch: CGFloat = .greatestFiniteMagnitude
+  private var maxPitch: CGFloat = -.greatestFiniteMagnitude
   private let targetYawSpan: CGFloat
   private let minCompletionTimeMillis: Int64
   private let minFaceSize: CGFloat
   private let maxMissedFrames: Int
   private let requireBidirectionalMovement: Bool
+  private let enablePitchDetection: Bool
   private let timeoutMillis: Int64
+  private let captureDelayMillis: Int64
   
   // Tracking variables
   private var hasMovedLeft: Bool = false
   private var hasMovedRight: Bool = false
+  private var hasMovedUp: Bool = false
+  private var hasMovedDown: Bool = false
   private var consecutiveMissedFrames: Int = 0
   private var frameWidth: CGFloat = 0
   private var frameHeight: CGFloat = 0
   private let startTime: Int64
+  private var delayStarted: Bool = false
 
   init(_ frame: CGRect,
        viewIdentifier viewId: Int64,
@@ -50,12 +57,14 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
 
     // Parse parameters from Flutter
     let map = args as? [String: Any] ?? [:]
-    targetYawSpan = CGFloat(truncating: map["targetYawSpan"] as? NSNumber ?? 100)
+    targetYawSpan = CGFloat(truncating: map["targetYawSpan"] as? NSNumber ?? 65)
     minCompletionTimeMillis = Int64(truncating: map["minCompletionTimeMillis"] as? NSNumber ?? 4000)
     minFaceSize = CGFloat(truncating: map["minFaceSize"] as? NSNumber ?? 0.20)
     maxMissedFrames = Int(truncating: map["maxMissedFrames"] as? NSNumber ?? 5)
     requireBidirectionalMovement = map["requireBidirectionalMovement"] as? Bool ?? true
+    enablePitchDetection = map["enablePitchDetection"] as? Bool ?? true
     timeoutMillis = Int64(truncating: map["timeoutMillis"] as? NSNumber ?? 15000)
+    captureDelayMillis = Int64(truncating: map["captureDelayMillis"] as? NSNumber ?? 1500)
     startTime = Int64(Date().timeIntervalSince1970 * 1000)
 
     super.init()
@@ -138,22 +147,39 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
     }
     
     let yaw = face.headEulerAngleY
+    let pitch = enablePitchDetection ? face.headEulerAngleX : 0
     
     // Track bidirectional movement (stricter thresholds)
     if yaw < -10 { hasMovedLeft = true }
     if yaw > 10 { hasMovedRight = true }
     
-    // Update extremes
+    if enablePitchDetection {
+      if pitch < -10 { hasMovedUp = true }
+      if pitch > 10 { hasMovedDown = true }
+    }
+    
+    // Update extremes for yaw
     if yaw < minYaw { minYaw = yaw }
     if yaw > maxYaw { maxYaw = yaw }
     
-    let covered = abs(maxYaw - minYaw)
-    let progress = min(covered / targetYawSpan, 1)
+    // Update extremes for pitch if enabled
+    if enablePitchDetection {
+      if pitch < minPitch { minPitch = pitch }
+      if pitch > maxPitch { maxPitch = pitch }
+    }
+    
+    // Calculate combined progress
+    let yawSpan = abs(maxYaw - minYaw)
+    let pitchSpan = enablePitchDetection ? abs(maxPitch - minPitch) : 0
+    
+    // Combine yaw and pitch spans, allowing either to contribute to total
+    let totalMovement = yawSpan + pitchSpan
+    let progress = min(totalMovement / targetYawSpan, 1)
     channel.invokeMethod("onProgress", arguments: Int(progress * 100))
     
     // Check completion conditions
     if canComplete(progress: progress) {
-      stopAndFinalize()
+      startCaptureDelay()
     }
   }
   
@@ -177,7 +203,18 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
       return false
     }
     
+    // Only allow starting the delay once
+    guard !delayStarted else { return false }
+    delayStarted = true
+    
     return true
+  }
+  
+  private func startCaptureDelay() {
+    // Schedule the capture after the delay
+    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(captureDelayMillis))) {
+      self.stopAndFinalize()
+    }
   }
   
   private func checkForFailure() {
