@@ -18,8 +18,18 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   double _progress = 0.0;
-  String _resultText = '';
+  String _videoPath = '';
+  String _imagePath = '';
   bool _isComplete = false;
+
+  void _checkCompletion() {
+    // Mark as complete when we have both video and image paths
+    if (_videoPath.isNotEmpty && _imagePath.isNotEmpty) {
+      setState(() {
+        _isComplete = true;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,12 +62,21 @@ class _MyAppState extends State<MyApp> {
           },
           onCapture: (videoFile) {
             setState(() {
-              _resultText = 'Success! Video: ${videoFile.path}';
-              _isComplete = true;
+              _videoPath = videoFile.path;
             });
             if (kDebugMode) {
               print('Liveness success, video recorded at: ${videoFile.path}');
             }
+            _checkCompletion();
+          },
+          onImageCapture: (imageFile) {
+            setState(() {
+              _imagePath = imageFile.path;
+            });
+            if (kDebugMode) {
+              print('Liveness success, image captured at: ${imageFile.path}');
+            }
+            _checkCompletion();
           },
         ),
 
@@ -115,7 +134,7 @@ class _MyAppState extends State<MyApp> {
           child: Column(
             children: [
               Text(
-                'Turn your head left AND right (80° total)',
+                'Turn your head left AND right (100° total)',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Colors.white,
@@ -124,7 +143,7 @@ class _MyAppState extends State<MyApp> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Face must be clearly visible • Takes 3+ seconds\nMove head both directions for security',
+                'Face must be clearly visible • Takes 4+ seconds\nStay close to camera • Move head both directions',
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -218,13 +237,13 @@ class _MyAppState extends State<MyApp> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Video saved successfully',
+              'Video and image saved successfully',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.8),
                 fontSize: 16,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 32),
               padding: const EdgeInsets.all(12),
@@ -232,14 +251,49 @@ class _MyAppState extends State<MyApp> {
                 color: Colors.grey[900],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                _resultText,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                ),
-                textAlign: TextAlign.center,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_videoPath.isNotEmpty) ...[
+                    const Text(
+                      'Video:',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _videoPath,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                  if (_imagePath.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Image:',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _imagePath,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: 32),
@@ -247,7 +301,8 @@ class _MyAppState extends State<MyApp> {
               onPressed: () {
                 setState(() {
                   _progress = 0.0;
-                  _resultText = '';
+                  _videoPath = '';
+                  _imagePath = '';
                   _isComplete = false;
                 });
               },

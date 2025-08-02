@@ -6,6 +6,8 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.video.VideoCapture
 import androidx.camera.video.Recorder
 import androidx.camera.video.FileOutputOptions
@@ -48,10 +50,10 @@ class FaceLivenessCameraView(
 
     init {
         // Extract parameters sent from Flutter
-        targetYawSpan = (creationParams?.get("targetYawSpan") as? Number)?.toFloat() ?: 80f
-        minCompletionTimeMillis = (creationParams?.get("minCompletionTimeMillis") as? Number)?.toLong() ?: 3000L
-        minFaceSize = (creationParams?.get("minFaceSize") as? Number)?.toFloat() ?: 0.15f
-        maxMissedFrames = (creationParams?.get("maxMissedFrames") as? Number)?.toInt() ?: 10
+        targetYawSpan = (creationParams?.get("targetYawSpan") as? Number)?.toFloat() ?: 100f
+        minCompletionTimeMillis = (creationParams?.get("minCompletionTimeMillis") as? Number)?.toLong() ?: 4000L
+        minFaceSize = (creationParams?.get("minFaceSize") as? Number)?.toFloat() ?: 0.20f
+        maxMissedFrames = (creationParams?.get("maxMissedFrames") as? Number)?.toInt() ?: 5
         requireBidirectionalMovement = (creationParams?.get("requireBidirectionalMovement") as? Boolean) ?: true
         timeoutMillis = (creationParams?.get("timeoutMillis") as? Number)?.toLong() ?: 15000L
 
@@ -92,6 +94,12 @@ class FaceLivenessCameraView(
                 .setQualitySelector(QualitySelector.from(Quality.HD))
                 .build()
             videoCapture = VideoCapture.withOutput(recorder)
+            
+            // ImageCapture use case for taking a photo when liveness completes
+            val imageCapture = ImageCapture.Builder()
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                .build()
+            this.imageCapture = imageCapture
 
             val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
@@ -102,7 +110,8 @@ class FaceLivenessCameraView(
                     cameraSelector,
                     preview,
                     analyzer,
-                    videoCapture
+                    videoCapture,
+                    imageCapture
                 )
                 beginRecording(cameraProvider, cameraSelector)
             } catch (e: Exception) {
@@ -124,14 +133,19 @@ class FaceLivenessCameraView(
     override fun getView(): View = previewView
 
     private fun onLivenessComplete() {
-        // Stop recording and send success once video file is available
+        // Stop recording and capture image, then send success once both are available
         stopRecording()
+        captureImage()
     }
 
     // --- Video recording ---
     private var videoCapture: androidx.camera.video.VideoCapture<androidx.camera.video.Recorder>? = null
     private var recording: androidx.camera.video.Recording? = null
     private var videoFilePath: String? = null
+    
+    // --- Image capture ---
+    private var imageCapture: ImageCapture? = null
+    private var imageFilePath: String? = null
 
     private fun startRecording() {
         val recorder = androidx.camera.video.Recorder.Builder()
@@ -162,10 +176,39 @@ class FaceLivenessCameraView(
     private fun stopRecording() {
         recording?.stop()
         recording = null
-
-        videoFilePath?.let { path ->
-            channel.invokeMethod("onLivenessSuccess", path)
-        }
+    }
+    
+    private fun captureImage() {
+        val imageCapture = this.imageCapture ?: return
+        
+        val imageFile = java.io.File.createTempFile("liveness_", ".jpg", context.cacheDir)
+        imageFilePath = imageFile.absolutePath
+        
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(imageFile).build()
+        
+        imageCapture.takePicture(
+            outputOptions,
+            context.mainExecutor,
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    // Both video recording and image capture are complete, send success
+                    sendSuccessResult()
+                }
+                
+                override fun onError(exception: ImageCaptureException) {
+                    // Even if image capture fails, send success with video only
+                    imageFilePath = null
+                    sendSuccessResult()
+                }
+            }
+        )
+    }
+    
+    private fun sendSuccessResult() {
+        val result = mutableMapOf<String, Any?>()
+        videoFilePath?.let { result["videoPath"] = it }
+        imageFilePath?.let { result["imagePath"] = it }
+        channel.invokeMethod("onLivenessSuccess", result)
     }
 
     override fun dispose() {
