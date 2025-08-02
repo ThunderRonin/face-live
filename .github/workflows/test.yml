@@ -67,7 +67,11 @@ jobs:
       - name: Run example tests
         run: |
           cd example
-          flutter test
+          if [ -d "test" ] && [ "$(find test -name '*.dart' | wc -l)" -gt 0 ]; then
+            flutter test
+          else
+            echo "No tests found in example/test directory, skipping..."
+          fi
 
   android-test:
     runs-on: ubuntu-latest
