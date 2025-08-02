@@ -1,3 +1,17 @@
+## 0.2.0
+
+### 🎉 New Features
+* **Pitch Detection**: Added `enablePitchDetection` parameter to include up/down head movement in liveness progress
+* **Capture Delay**: Added `captureDelayMillis` parameter for optimal user positioning before final capture
+
+### 🔧 Improvements
+* Adjusted `targetYawSpan` default from 100° to 65° for easier and more user-friendly liveness detection
+* Enhanced native implementations on both Android and iOS to support new parameters
+
+### 📱 Platform Support
+* Android: Updated FaceLivenessAnalyzer and CameraView with new parameter support
+* iOS: Updated FaceLivenessCameraView with pitch detection and capture delay features
+
 ## 0.1.0
 
 ### 🎉 New Features
