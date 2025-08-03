@@ -21,6 +21,8 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
   private var videoFilePath: String?
   private var imageFilePath: String?
   private var videoLayer: AVCaptureVideoPreviewLayer?
+  private var isVideoComplete = false
+  private var isImageComplete = false
   private let messenger: FlutterBinaryMessenger
   private let channel: FlutterMethodChannel
   private var minYaw: CGFloat = .greatestFiniteMagnitude
@@ -225,17 +227,21 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
   }
 
   private func stopAndFinalize() {
-    captureSession.stopRunning()
-    
-    // Capture image first
+    // Capture image BEFORE stopping session
     captureImage()
     
     // Stop recording if active
     if let movie = movieOutput, movie.isRecording {
       movie.stopRecording()
-      // The delegate will fire and invoke success when done.
+      // The delegate will fire and set isVideoComplete = true
     } else {
-      sendSuccessResult()
+      // No recording to stop, mark video as complete
+      isVideoComplete = true
+    }
+    
+    // Stop capture session after initiating capture operations
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+      self.captureSession.stopRunning()
     }
   }
   
@@ -261,6 +267,11 @@ class FaceLivenessCameraView: NSObject, FlutterPlatformView {
   }
   
   private func sendSuccessResult() {
+    // Only send result when both video and image are complete
+    guard isVideoComplete && isImageComplete else {
+      return
+    }
+    
     var result: [String: Any] = [:]
     if let videoPath = videoFilePath {
       result["videoPath"] = videoPath
@@ -308,7 +319,8 @@ extension FaceLivenessCameraView: AVCaptureFileOutputRecordingDelegate {
       videoFilePath = outputFileURL.path
     }
     
-    sendSuccessResult()
+    isVideoComplete = true
+    sendSuccessResult() // Will only send if both video and image are complete
   }
 }
 
@@ -317,26 +329,28 @@ extension FaceLivenessCameraView: AVCapturePhotoCaptureDelegate {
     if let error = error {
       print("Photo capture error: \(error)")
       imageFilePath = nil
-      return
+    } else {
+      guard let imageData = photo.fileDataRepresentation() else {
+        print("Failed to get image data")
+        imageFilePath = nil
+        return
+      }
+      
+      let tempDir = FileManager.default.temporaryDirectory
+      let fileName = "liveness_\(Date().timeIntervalSince1970).jpg"
+      let fileURL = tempDir.appendingPathComponent(fileName)
+      
+      do {
+        try imageData.write(to: fileURL)
+        imageFilePath = fileURL.path
+      } catch {
+        print("Failed to write image data: \(error)")
+        imageFilePath = nil
+      }
     }
     
-    guard let imageData = photo.fileDataRepresentation() else {
-      print("Failed to get image data")
-      imageFilePath = nil
-      return
-    }
-    
-    let tempDir = FileManager.default.temporaryDirectory
-    let fileName = "liveness_\(Date().timeIntervalSince1970).jpg"
-    let fileURL = tempDir.appendingPathComponent(fileName)
-    
-    do {
-      try imageData.write(to: fileURL)
-      imageFilePath = fileURL.path
-    } catch {
-      print("Failed to write image data: \(error)")
-      imageFilePath = nil
-    }
+    isImageComplete = true
+    sendSuccessResult() // Will only send if both video and image are complete
   }
 }
 

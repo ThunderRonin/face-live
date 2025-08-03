@@ -1,3 +1,13 @@
+## 0.2.1
+
+### 🐛 Bug Fixes
+* **iOS Recording Error**: Fixed AVFoundation error -11803 "Cannot Record" by implementing proper coordination between video recording and photo capture operations
+* **Enhanced iOS Stability**: Added completion flags and delayed session stopping (0.3s) to ensure both video and image operations complete successfully before finalizing
+
+### 🔧 Improvements
+* **Better Error Handling**: Improved logging for video recording and photo capture operations on iOS
+* **Coordination Pattern**: Implemented robust completion tracking to prevent partial results and ensure reliable capture on all iOS devices
+
 ## 0.2.0
 
 ### 🎉 New Features

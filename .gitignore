@@ -32,3 +32,6 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 build/
 .cursor
+
+# Docs
+PUBLISHING.md
