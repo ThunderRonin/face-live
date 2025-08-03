@@ -16,7 +16,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  face_live: ^0.0.1
+  face_live: ^0.2.0
 ```
 
 ## Platform Setup
